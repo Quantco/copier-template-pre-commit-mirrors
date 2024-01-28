@@ -25,12 +25,20 @@ entry:
     {% if entry == '' %}
     Please provide an entry
     {% endif %}
+conda_package:
+  type: str
+  help: What is the conda package name?
+  default: '{{ tool }}'
+  validator: >-
+    {% if conda_package == '' %}
+    Please provide a conda package name
+    {% endif %}
 description:
   type: str
   help: What is the description of the tool?
   default: This hook runs {{ tool }}.
 
 _tasks:
-  - sed -i "s/TOOL_VERSION/$(micromamba search -c conda-forge {{ tool }} --json | jq -r '.result.pkgs[0].version')/g" environment.yml
+  - sed -i "s/TOOL_VERSION/$(micromamba search -c conda-forge {{ conda_package }} --json | jq -r '.result.pkgs[0].version')/g" environment.yml
   - git init
   - git branch -M main
