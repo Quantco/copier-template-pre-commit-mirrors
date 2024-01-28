@@ -1,0 +1,136 @@
+name: CI Copier
+on: [push]
+
+# Automatically stop old builds on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -el {0}
+
+jobs:
+  linux-unittests:
+    name: Check project generation
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+      - name: Set up Conda env
+        uses: mamba-org/setup-micromamba@8767fb704bd78032e9392f0386bf46950bdd1194
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+          create-args: >-
+            python=3.11
+            pytest-md
+            pytest-emoji
+      - name: Cache pre-commit envs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pre-commit
+          key: project-generation-pre-commit-${{ hashFiles('template/.pre-commit-config.yaml') }}
+      - name: Run unittests
+        uses: quantco/pytest-action@v2
+        with:
+          report-title: Check project generation
+          click-to-expand: false
+
+  pre-commit-checks:
+    name: Pre-commit checks - Python 3.11
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetching the entire branch history is necessary for the 'pre-commit-insert-license' hook to recognize the actual git lifespan of a file.
+      - name: Run pre-commit-conda
+        uses: quantco/pre-commit-conda@v1
+        with:
+          python-version: "3.11"
+
+  test-generated-package-ci:
+    name: Test CI of generated package (rattler-build = ${{ matrix.use-rattler-build }}) (mypy = ${{ matrix.use-mypy }})
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    concurrency: test-generated-package-ci-${{ github.sha }}-${{ matrix.use-rattler-build }}-${{ matrix.use-mypy }}
+    strategy:
+      matrix:
+        include:
+          - use-rattler-build: false
+            use-mypy: true
+          - use-rattler-build: true
+            use-mypy: true
+          - use-rattler-build: true
+            use-mypy: false
+
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ref: ${{ github.head_ref }}
+      - name: Set up Conda env
+        uses: mamba-org/setup-micromamba@8767fb704bd78032e9392f0386bf46950bdd1194
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+      - name: Test generated package CI
+        run: |
+          # Name of the generated package.
+          PKG=quantcore.test-package
+          # Authentication for pushing to $REPO.
+          AUTH='authorization: Bearer ${{ secrets.GITHUB_TOKEN }}'
+          eval $(ssh-agent)
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+          # Set up local Git so that copier can run "git commit".
+          git config --global user.email "forrest.quant@quantco.com"
+          git config --global user.name "Forrest Quant"
+          # Generate package with default settings + Windows CI.
+          copier copy \
+            --data project_name="Package" \
+            --data project_short_description="Example Package" \
+            --data use_rattler_build="${{ matrix.use-rattler-build }}" \
+            --data use_mypy="${{ matrix.use-mypy }}" \
+            --data github_user="ForrestQuant" \
+            --data project_slug="$PKG" \
+            --defaults \
+            --trust \
+            . out
+          cd out
+          # Push the generated package's HEAD commit to a `ci/*` branch
+          cid=$(git rev-parse HEAD)
+          git push -f "${GITHUB_SERVER_URL/https:\/\//git@}:$GITHUB_REPOSITORY" $cid:refs/heads/ci/$GITHUB_SHA-${{ matrix.use-rattler-build }}-${{ matrix.use-mypy }}
+          # Use the GitHub API to wait for the generated package's CI to complete (success or failure).
+          # We look for a GitHub Actions run for the HEAD commit ID.
+          WORKFLOW_URL="$GITHUB_API_URL/repos/${GITHUB_REPOSITORY}/actions/runs?branch=ci/${GITHUB_SHA}-${{ matrix.use-rattler-build }}-${{ matrix.use-mypy }}&head_sha=${cid}"
+          echo "Waiting for inner CI to start"
+          while (( $(curl -Ls --header "$AUTH" "$WORKFLOW_URL" | jq -r ".workflow_runs | length") < 1 )); do
+            sleep 10
+          done
+          echo "Waiting for inner CI to complete"
+          while curl -Ls --header "$AUTH" "$WORKFLOW_URL" | jq -r ".workflow_runs | .[] | .status" | grep --invert-match completed > /dev/null; do
+            sleep 10
+          done
+          # Fail unless CI was successful.
+          if curl -Ls --header "$AUTH" "$WORKFLOW_URL" | jq -r ".workflow_runs | .[] | .conclusion" | grep --invert-match success > /dev/null; then
+            echo "CI pipeline failed"
+            exit 1
+          fi
+      - name: Clean up CI branch
+        if: always()
+        run: |
+          AUTH='authorization: Bearer ${{ secrets.GITHUB_TOKEN }}'
+          eval $(ssh-agent)
+          ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+
+          git push -d "${GITHUB_SERVER_URL/https:\/\//git@}:$GITHUB_REPOSITORY" refs/heads/ci/$GITHUB_SHA-${{ matrix.use-rattler-build }}-${{ matrix.use-mypy }}
+
+          for line in $(curl -Ls --header "$AUTH" "$GITHUB_API_URL/repos/${GITHUB_REPOSITORY}/actions/runs?branch=ci/${GITHUB_SHA}-${{ matrix.use-rattler-build }}-${{ matrix.use-mypy }}&head_sha=${cid}" | jq -r ".workflow_runs | .[] | select(.status != \"completed\") | .id")
+          do
+            curl -Ls --header "$AUTH" --request POST "$GITHUB_API_URL/repos/${GITHUB_REPOSITORY}/actions/runs/$line/cancel" > /dev/null
+          done

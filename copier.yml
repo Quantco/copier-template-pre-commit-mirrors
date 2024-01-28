@@ -1,0 +1,18 @@
+# configuration
+_subdirectory: template
+_min_copier_version: '9.1.1'
+
+# questions
+tool:
+  type: str
+  help: What is the name of the tool?
+url:
+  type: str
+  help: What is the URL of the tool?
+entry:
+  type: str
+  help: What is the pre-commit entry?
+
+_tasks:
+  - git init
+  - gsed -i "s/TOOL_VERSION/$(micromamba search {{ tool }} --json | jq -r '.result.pkgs[0].version')/g" environment.yml

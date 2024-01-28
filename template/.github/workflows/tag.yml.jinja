@@ -1,0 +1,24 @@
+name: Tag on version bump
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Quantco/ui-actions/version-metadata@v1
+        id: version-metadata
+        with:
+          file: environment.yml
+          token: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+          version-extraction-override: 'regex:\s+- {{ tool }}=(\d+.\d+.\d+)'
+      - name: Bump tag
+        if: steps.version-metadata.outputs.changed == 'true'
+        run: |
+          version="{% raw %}${{ steps.version-metadata.outputs.newVersion }}{% endraw %}"
+          git tag "$version"
+          git push origin "$version"
