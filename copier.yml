@@ -20,6 +20,7 @@ url:
 entry:
   type: str
   help: What is the pre-commit entry (for example `ruff --fix --exit-non-zero-on-fix`)?
+  default: '{{ tool }}'
   validator: >-
     {% if entry == '' %}
     Please provide an entry
