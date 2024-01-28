@@ -1,0 +1,26 @@
+name: CI Copier
+on: [push]
+
+# Automatically stop old builds on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-unittests:
+    name: Check project generation
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # copier doesn't like shallow clones
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@ca3b9ac762955fad216e3d8e0bbf22087071c89c
+      - name: Run unittests
+        uses: quantco/pytest-action@v2
+        with:
+          report-title: Check project generation
+          click-to-expand: false
+          custom-pytest: pixi run pytest

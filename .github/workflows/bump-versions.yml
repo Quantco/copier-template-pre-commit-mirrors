@@ -1,0 +1,92 @@
+name: Bump versions
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 6 * * *
+
+jobs:
+  generate-tools:
+    name: Get all tools
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.setmatrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get all tools
+        id: setmatrix
+        shell: python
+        run: |
+          import os
+          import json
+          from pathlib import Path
+
+          tools = {}
+          # incompatible with subdirectory actions
+          skip_actions = ["Quantco/ui-actions/version-metadata"]
+
+          for file in Path("template/.github/workflows").glob("*"):
+              content = file.read_text()
+              # go over every `uses: ` line
+              for line in content.splitlines():
+                  if "uses: " in line:
+                      # extract the action name
+                      action, version = line.split("uses: ", 1)[1].split("@", 1)
+                      if action in skip_actions:
+                          # not possible because it's a private repository
+                          continue
+                      tools[action] = ("major" if version.startswith("v") else "sha")
+
+          matrix = []
+
+          for tool, versioning in tools.items():
+              matrix.append({"tool": tool, "versioning": versioning})
+
+          with open(os.environ["GITHUB_OUTPUT"], "w") as f:
+              f.write(f"matrix={json.dumps(matrix)}")
+
+  bump:
+    needs: [generate-tools]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.generate-tools.outputs.matrix) }}
+    name: Bump ${{ matrix.tool }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # needed s.t. the workflows have permissions to run when the PR is created
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ref: ${{ github.head_ref }}
+      - name: Bump versions
+        id: bump
+        run: |
+          set -exuo pipefail
+          new_version="$(gh repo view --json latestRelease ${{ matrix.tool }} | jq -r '.latestRelease.tagName')"
+          if [[ ${{ matrix.versioning }} = "sha" ]]; then
+            echo "new-version=$new_version" >> "$GITHUB_OUTPUT"
+            commit_sha="$(gh api "repos/${{ matrix.tool }}/commits/$new_version" | jq -r '.sha')"
+            for file in ./template/.github/workflows/*; do
+              sed -i -e "s#${{ matrix.tool }}@.*#${{ matrix.tool }}@${commit_sha}#g" "$file"
+            done
+          elif [[ ${{ matrix.versioning }} = "major" ]]; then
+            new_version_major="$(echo "$new_version" | cut -d. -f1)"
+            echo "new-version=$new_version_major" >> "$GITHUB_OUTPUT"
+            for file in ./template/.github/workflows/*; do
+              sed -i -e "s#${{ matrix.tool }}@.*#${{ matrix.tool }}@${new_version_major}#g" "$file"
+            done
+          else
+            echo "Unknown versioning scheme: ${{ matrix.versioning }}"
+            exit 1
+          fi
+          git diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@153407881ec5c347639a548ade7d8ad1d6740e38
+        with:
+          title: Bump ${{ matrix.tool }} to ${{ steps.bump.outputs.new-version }}
+          delete-branch: true
+          commit-message: Bump ${{ matrix.tool }} version to ${{ steps.bump.outputs.new-version }}
+          branch: bump-${{ matrix.tool }}-${{ steps.bump.outputs.new-version }}
+          labels: dependencies
