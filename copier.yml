@@ -6,12 +6,24 @@ _min_copier_version: '9.1.1'
 tool:
   type: str
   help: What is the name of the tool?
+  validator: >-
+    {% if entry == '' %}
+    Please provide a valid tool name
+    {% endif %}
 url:
   type: str
   help: What is the URL of the tool?
+  validator: >-
+    {% if not url.startswith('https://') %}
+    Please provide a URL
+    {% endif %}
 entry:
   type: str
-  help: What is the pre-commit entry?
+  help: What is the pre-commit entry (for example `ruff --fix --exit-non-zero-on-fix`)?
+  validator: >-
+    {% if entry == '' %}
+    Please provide an entry
+    {% endif %}
 
 _tasks:
   - git init
