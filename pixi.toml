@@ -3,7 +3,7 @@ name = "copier-template-pre-commit-mirrors"
 description = "Copier template for our pre-commit mirrors"
 authors = ["QuantCo <noreply@quantco.com>"]
 channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64"]
+platforms = ["osx-arm64", "osx-64", "linux-64"]
 
 [tasks]
 generate = "copier copy --vcs-ref=HEAD --trust ."
@@ -15,4 +15,4 @@ micromamba = ">=1.5.6,<1.6"
 pytest = ">=7.4.4,<7.5"
 pytest-emoji = ">=0.2.0,<0.3"
 pytest-md = ">=0.2.0,<0.3"
-sed = ">=4.8,<5"
+sed = ">=4.7,<5"
