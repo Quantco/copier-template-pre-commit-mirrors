@@ -1,6 +1,6 @@
 [project]
 name = "copier-template-pre-commit-mirrors"
-description = "Copier template for our pre-commit mirrors"
+description = "Copier template for our conda based pre-commit hooks"
 authors = ["QuantCo <noreply@quantco.com>"]
 channels = ["conda-forge"]
 platforms = ["osx-arm64", "osx-64", "linux-64"]
