@@ -39,6 +39,6 @@ description:
   default: This hook runs {{ tool }}.
 
 _tasks:
-  - sed -i "s/TOOL_VERSION/$(micromamba search -c conda-forge {{ conda_package }} --json | jq -r '.result.pkgs[0].version')/g" environment.yml
+  - sed -i.bak "s/TOOL_VERSION/$(micromamba search -c conda-forge {{ conda_package }} --json | jq -r '.result.pkgs[0].version')/g" environment.yml
   - git init
   - git branch -M main
