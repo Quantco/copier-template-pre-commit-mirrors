@@ -12,6 +12,8 @@ def test_generation(generate_project):
 
     assert (path / ".pre-commit-hooks.yaml").exists()
     assert (path / ".copier-answers.yml").exists()
+    assert (path / "environment.yml").exists()
+    assert not (path / "environment.yml.bak").exists()
 
 
 def test_generation_incorrect_params(generate_project):
