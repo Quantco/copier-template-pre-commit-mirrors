@@ -1,0 +1,9 @@
+exclude: ^\.copier-answers\.yml$
+repos:
+  - repo: https://github.com/Quantco/pre-commit-mirrors-pre-commit-hooks
+    rev: 4.5.0
+    hooks:
+      - id: trailing-whitespace-conda
+      - id: end-of-file-fixer-conda
+      - id: check-merge-conflict-conda
+        args: ["--assume-in-merge"]
