@@ -21,6 +21,6 @@ jobs:
         with:
           fetch-depth: 0 # copier doesn't like shallow clones
       - name: Set up pixi
-        uses: prefix-dev/setup-pixi@d72307a91ccc8a856376cdb9ff5b074a04422409
+        uses: prefix-dev/setup-pixi@2058dcd92f5dbe3befd7379ec6a3022bb746bdfd
       - name: Test
         run: pixi run test
