@@ -83,7 +83,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@4320041ed380b20e97d388d56a7fb4f9b8c20e79
+        uses: peter-evans/create-pull-request@d121e62763d8cc35b5fb1710e887d6e69a52d3a4
         with:
           title: Bump ${{ matrix.tool }} to ${{ steps.bump.outputs.new-version }}
           delete-branch: true
