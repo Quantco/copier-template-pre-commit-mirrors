@@ -18,7 +18,7 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
       - name: Set up Conda env
-        uses: mamba-org/setup-micromamba@59b11321ffd9186cd5165633a02c5bba47de6d13
+        uses: mamba-org/setup-micromamba@ab6bf8bf7403e8023a094abeec19d6753bdc143e
         with:
           environment-file: environment.yml
           environment-name: check-env
