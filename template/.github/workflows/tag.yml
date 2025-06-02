@@ -14,11 +14,11 @@ jobs:
         id: version-metadata
         with:
           file: environment.yml
-          token: {% raw %}${{ secrets.GITHUB_TOKEN }}{% endraw %}
+          token: ${{ secrets.GITHUB_TOKEN }}
           version-extraction-override: 'regex:\s+- {{ tool }}=(\d+.\d+.\d+)'
       - name: Bump tag
         if: steps.version-metadata.outputs.changed == 'true'
         run: |
-          version="{% raw %}${{ steps.version-metadata.outputs.newVersion }}{% endraw %}"
+          version="${{ steps.version-metadata.outputs.newVersion }}"
           git tag "$version"
           git push origin "$version"
