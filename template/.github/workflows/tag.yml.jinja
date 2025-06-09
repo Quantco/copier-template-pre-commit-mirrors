@@ -1,4 +1,4 @@
-name: Tag on version bump
+{% raw %}name: Tag on version bump
 
 on:
   push:
@@ -15,10 +15,13 @@ jobs:
         with:
           file: environment.yml
           token: ${{ secrets.GITHUB_TOKEN }}
+          {%- endraw %}
           version-extraction-override: 'regex:\s+- {{ tool }}=(\d+.\d+.\d+)'
+          {%- raw %}
       - name: Bump tag
         if: steps.version-metadata.outputs.changed == 'true'
         run: |
           version="${{ steps.version-metadata.outputs.newVersion }}"
           git tag "$version"
           git push origin "$version"
+{%- endraw %}
